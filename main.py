@@ -20,22 +20,56 @@ async def help_commmand(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Commands: \n"
         "/start - to start the bot\n"
         "/help - to display help\n"
-        "/custom - this is a custom command\n" 
     )
     await update.message.reply_text(text= help_text, parse_mode='Markdown')
-
-async def custom_commmand(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("this is a custom command")
 
 async def news_commmand(update: Update, context: ContextTypes.DEFAULT_TYPE):
     news = await get_news()
     await update.message.reply_text(news)
 
-# Responses
+async def top_commmand(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    news = await get_top_news()
+    await update.message.reply_text(news)
 
+async def new_commmand(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    news = await get_latest_news()
+    await update.message.reply_text(news)
+
+
+# Responses
 async def get_news():
     async with aiohttp.ClientSession() as session:
         async with session.get(f"{BASE_URL}/topstories.json") as resp:
+            ids = await resp.json()
+
+        msg = []
+        for story_id in ids[:5]:
+            async with session.get(f"{BASE_URL}/item/{story_id}.json") as resp:
+                story = await resp.json()
+                title = story.get('title', 'No title')
+                url = story.get('url', '')
+                msg.append(f"{title}\n{url}")
+
+    return "\n".join(msg)
+
+async def get_top_news():
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{BASE_URL}/beststories.json") as resp:
+            ids = await resp.json()
+
+        msg = []
+        for story_id in ids[:5]:
+            async with session.get(f"{BASE_URL}/item/{story_id}.json") as resp:
+                story = await resp.json()
+                title = story.get('title', 'No title')
+                url = story.get('url', '')
+                msg.append(f"{title}\n{url}")
+
+    return "\n".join(msg)
+
+async def get_latest_news():
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{BASE_URL}/newstories.json") as resp:
             ids = await resp.json()
 
         msg = []
@@ -86,21 +120,26 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'Update {update} caused error {context.error}')
 
 
-if __name__ == '__main__':
+
+
+
+def main():
+    print("INSIDE ASYNC MAIN")
     print('Starting Bot...')
     app = Application.builder().token(os.getenv('TOKEN')).build()
 
-    # await app.bot.set_my_commands([
-    # ("start", "Start the bot"),
-    # ("help", "Show help"),
-    # ("custom", "custom command"),
-    # ])
+    app.bot.set_my_commands([
+    ("start", "Start the bot"),
+    ("help", "Show help"),
+    ("custom", "custom command")
+    ])
     
     # Commands
     app.add_handler(CommandHandler('start', start_commmand))
     app.add_handler(CommandHandler('help', help_commmand))
-    app.add_handler(CommandHandler('custom', custom_commmand))
     app.add_handler(CommandHandler('news', news_commmand))
+    app.add_handler(CommandHandler('top', top_commmand))
+    app.add_handler(CommandHandler('new', new_commmand))
 
     # Messages 
     app.add_handler(MessageHandler(filters.TEXT, handle_message))
@@ -111,6 +150,11 @@ if __name__ == '__main__':
     # Poll
     print('Polling...')
     app.run_polling(poll_interval=3)
+
+
+if __name__ == '__main__':
+    main()
+
 
 
 
